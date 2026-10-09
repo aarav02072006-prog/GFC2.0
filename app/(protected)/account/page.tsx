@@ -1,0 +1,4 @@
+import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
+import { LogoutButton } from "@/features/auth/LogoutButton";
+export default async function AccountPage() { const user = await getCurrentUser(); return <main className="mx-auto min-h-screen max-w-5xl px-6 py-14"><div className="flex items-start justify-between"><div><h1 className="text-4xl font-bold">Your account</h1><p className="mt-3 text-slate-600">{user?.email}</p></div><LogoutButton /></div><div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["Profile","/account/profile"],["Addresses","/account/addresses"],["Orders","/account/orders"],["Cart","/cart"]].map(([label, href]) => <Link key={href} href={href} className="rounded-2xl border border-slate-200 p-6 font-semibold hover:border-indigo-500 hover:bg-indigo-50">{label}<span className="mt-2 block text-sm font-normal text-slate-500">Manage your {label.toLowerCase()} →</span></Link>)}</div></main>; }

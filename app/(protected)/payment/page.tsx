@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function PaymentPage() { return <main className="mx-auto min-h-screen max-w-2xl px-6 py-20 text-center"><div className="rounded-3xl border border-amber-200 bg-amber-50 p-10"><h1 className="text-3xl font-bold">Payment setup required</h1><p className="mt-4 text-slate-600">No payment gateway is configured. Your order has not been charged.</p><Link href="/products" className="mt-8 inline-block rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white">Return to products</Link></div></main>; }

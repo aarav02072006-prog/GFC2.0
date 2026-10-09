@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function ForgotPasswordPage() { return <main className="mx-auto min-h-screen max-w-md px-6 py-14"><h1 className="text-4xl font-bold">Reset password</h1><p className="mt-4 text-slate-600">Password reset email delivery can be connected when an email provider is configured.</p><Link href="/login" className="mt-8 inline-block text-indigo-600">Back to sign in</Link></main>; }
