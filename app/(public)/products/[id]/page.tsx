@@ -1,6 +1,730 @@
+
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getProduct, formatPrice, products } from "@/lib/products";
+import { formatPrice } from "@/lib/products";
+import { getCatalogProduct, getRelatedCatalogProducts } from "@/lib/catalog";
 import { ProductActions } from "@/features/products/ProductActions";
 import { ProductGrid } from "@/components/products/ProductGrid";
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) { const product = getProduct((await params).id); if (!product) notFound(); const related = products.filter((item) => item.category === product.category && item.id !== product.id).slice(0, 3); return <main className="mx-auto min-h-screen max-w-7xl px-6 py-14"><div className="grid gap-10 md:grid-cols-2"><div className="flex min-h-96 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-100 to-pink-100 text-9xl" aria-hidden="true">{product.emoji}</div><div className="py-4"><Link href="/products" className="text-sm font-semibold text-indigo-600">← Back to products</Link><p className="mt-8 font-semibold uppercase tracking-wide text-indigo-600">{product.category}</p><h1 className="mt-3 text-4xl font-bold">{product.name}</h1><p className="mt-5 text-3xl font-bold">{formatPrice(product.price)}</p><p className="mt-6 leading-7 text-slate-600">{product.description}</p><p className="mt-5 text-sm text-slate-500">{product.stock > 0 ? `${product.stock} available` : "Out of stock"}</p><ProductActions product={product} /></div></div>{related.length > 0 && <section className="mt-20"><h2 className="mb-6 text-2xl font-bold">You may also like</h2><ProductGrid products={related} /></section>}</main>; }
+
+type ProductPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-4 border-b border-slate-100 py-4 last:border-0 sm:grid-cols-[180px_minmax(0,1fr)]">
+      <dt className="text-sm font-medium text-slate-500">
+        {label}
+      </dt>
+      <dd className="min-w-0 break-words text-sm font-semibold text-slate-900">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function SectionTitle({
+  eyebrow,
+  title,
+}: {
+  eyebrow?: string;
+  title: string;
+}) {
+  return (
+    <div className="mb-7">
+      {eyebrow && (
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">
+          {eyebrow}
+        </p>
+      )}
+      <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+        {title}
+      </h2>
+    </div>
+  );
+}
+
+export default async function ProductPage({
+  params,
+}: ProductPageProps) {
+  const { id } = await params;
+  const product = await getCatalogProduct(id);
+
+  if (!product) {
+    notFound();
+  }
+
+  let related: Awaited<ReturnType<typeof getRelatedCatalogProducts>> = [];
+  try {
+    related = await getRelatedCatalogProducts(product.category, product.id, product.subcategory);
+  } catch {
+    console.error("Related products are unavailable.");
+  }
+
+  const inStock = product.stock > 0;
+
+  const stockMessage = !inStock
+    ? product.availability ?? "Currently unavailable"
+    : product.availability ?? "Available";
+
+  const description =
+    product.description?.trim() || "No description available.";
+
+  const descriptionParagraphs = description
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return (
+    <main className="min-h-screen bg-[var(--page-bg)] text-slate-900">
+      {/* Breadcrumbs */}
+      <nav
+        aria-label="Breadcrumb"
+        className="border-b border-slate-200 bg-white"
+      >
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-5 py-4 text-xs text-slate-500 sm:px-8 sm:text-sm">
+          <Link
+            href="/"
+            className="transition hover:text-violet-700"
+          >
+            Home
+          </Link>
+
+          <span aria-hidden="true">/</span>
+
+          <Link
+            href="/products"
+            className="transition hover:text-violet-700"
+          >
+            Products
+          </Link>
+
+          <span aria-hidden="true">/</span>
+
+          <span className="font-medium text-slate-600">
+            {product.category}
+          </span>
+
+          <span aria-hidden="true">/</span>
+
+          <span
+            className="max-w-[220px] truncate font-semibold text-slate-950"
+            aria-current="page"
+          >
+            {product.name}
+          </span>
+        </div>
+      </nav>
+
+      <div className="mx-auto max-w-7xl px-5 pb-24 pt-7 sm:px-8">
+        {/* Main product layout */}
+        <div className="grid items-start gap-8 lg:grid-cols-12 lg:gap-10">
+          {/* Product gallery */}
+          <section
+            aria-label="Product visual"
+            className="lg:col-span-5"
+          >
+            <div className="lg:sticky lg:top-6">
+              <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="absolute inset-6 rounded-[2rem] bg-gradient-to-br from-violet-50 via-slate-50 to-rose-50" />
+
+                {product.imageUrl ? (
+                  <Image
+                    src={product.imageUrl}
+                    alt={product.name}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 42vw"
+                    className="relative z-10 object-contain p-6 transition-transform duration-500 hover:scale-105 sm:p-10"
+                    unoptimized
+                  />
+                ) : (
+                  <div
+                    className="relative flex h-full w-full items-center justify-center text-[8rem] drop-shadow-xl transition-transform duration-500 hover:scale-105 sm:text-[11rem]"
+                    role="img"
+                    aria-label={`Product illustration for ${product.name}`}
+                  >
+                    {product.emoji}
+                  </div>
+                )}
+
+                <div className="absolute left-5 top-5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm">
+                  {product.category}
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Product preview
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Visual representation
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">
+                  Cliffesto
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Product information */}
+          <section className="min-w-0 lg:col-span-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-800">
+                {product.category}
+              </span>
+
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  inStock
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-red-50 text-red-700"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    inStock ? "bg-emerald-500" : "bg-red-500"
+                  }`}
+                />
+                {inStock ? "In stock" : "Out of stock"}
+              </span>
+            </div>
+
+            <h1 className="mt-5 text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl">
+              {product.name}
+            </h1>
+
+            <p className="mt-3 text-sm text-slate-500">
+              Explore product details, availability, and purchasing options.
+            </p>
+
+            <div className="mt-6 border-y border-slate-200 py-6">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                Product price
+              </p>
+
+              <div className="mt-2 flex flex-wrap items-end gap-3">
+                <span className="text-4xl font-extrabold tracking-tight text-slate-950">
+                  {formatPrice(product.price)}
+                </span>
+                {product.price !== undefined && product.originalPrice !== undefined && product.originalPrice > product.price && (
+                  <span className="pb-1 text-lg text-slate-500 line-through">
+                    {formatPrice(product.originalPrice)}
+                  </span>
+                )}
+                {product.discountPercentage !== undefined && product.discountPercentage > 0 && (
+                  <span className="pb-1 text-sm font-semibold text-emerald-700">
+                    {product.discountPercentage}% off
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                Any applicable shipping charges or additional costs
+                should be confirmed during checkout.
+              </p>
+            </div>
+
+            {/* Overview */}
+            <div className="mt-7">
+              <h2 className="text-lg font-bold text-slate-950">
+                About this product
+              </h2>
+
+              <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-600">
+                {description}
+              </p>
+
+              <a
+                href="#full-description"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-violet-700 hover:text-violet-900"
+              >
+                Read full description
+                <span aria-hidden="true">↓</span>
+              </a>
+            </div>
+
+            {/* Product facts */}
+            <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-100 px-5 py-4">
+                <h2 className="text-base font-bold text-slate-950">
+                  Product at a glance
+                </h2>
+              </div>
+
+              <dl className="px-5">
+                <DetailRow
+                  label="Category"
+                  value={product.category}
+                />
+                {product.brand && <DetailRow label="Brand" value={product.brand} />}
+                {product.sellerName && <DetailRow label="Seller" value={product.sellerName} />}
+                {product.material && <DetailRow label="Material" value={product.material} />}
+                {product.colors?.length ? <DetailRow label="Colors" value={product.colors.join(", ")} /> : null}
+                {product.sizes?.length ? <DetailRow label="Sizes" value={product.sizes.join(", ")} /> : null}
+                {product.codAvailable && <DetailRow label="Cash on delivery" value={product.codAvailable} />}
+                {product.deliveryTime && <DetailRow label="Delivery time" value={product.deliveryTime} />}
+                {product.returnPolicy && <DetailRow label="Return policy" value={product.returnPolicy} />}
+
+                <DetailRow
+                  label="Product ID"
+                  value={String(product.id)}
+                />
+
+                <DetailRow
+                  label="Price"
+                  value={formatPrice(product.price)}
+                />
+
+                <DetailRow
+                  label="Availability"
+                  value={stockMessage}
+                />
+
+              </dl>
+            </div>
+
+            {product.seller && (
+              <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+                <h2 className="font-bold text-slate-950">Seller information</h2>
+                <dl className="mt-3">
+                  {product.seller.rating !== undefined && <DetailRow label="Rating" value={product.seller.rating} />}
+                  {product.seller.verified !== undefined && <DetailRow label="Verified" value={product.seller.verified ? "Verified seller" : "Not verified"} />}
+                  {product.seller.location && <DetailRow label="Location" value={product.seller.location} />}
+                  {product.seller.responseTime && <DetailRow label="Response time" value={product.seller.responseTime} />}
+                  {product.seller.returnPolicy && <DetailRow label="Seller returns" value={product.seller.returnPolicy} />}
+                  {product.seller.codAccepted !== undefined && <DetailRow label="Seller COD" value={product.seller.codAccepted ? "Accepted" : "Not accepted"} />}
+                </dl>
+              </section>
+            )}
+
+            {/* Page links */}
+            <div className="mt-8">
+              <h2 className="text-base font-bold">
+                Explore product information
+              </h2>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href="#full-description"
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-violet-400"
+                >
+                  Description ↓
+                </a>
+
+                <a
+                  href="#specifications"
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-violet-400"
+                >
+                  Specifications ↓
+                </a>
+
+                <a
+                  href="#shopping-information"
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-violet-400"
+                >
+                  Shopping information ↓
+                </a>
+
+                {related.length > 0 && (
+                  <a
+                    href="#related-products"
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-violet-400"
+                  >
+                    Similar products ↓
+                  </a>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Purchase panel */}
+          <aside className="lg:col-span-3">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">
+                Purchase options
+              </p>
+
+              <p className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">
+                {formatPrice(product.price)}
+              </p>
+
+              <div className="mt-5 border-t border-slate-100 pt-5">
+                <p className="text-sm font-semibold text-slate-900">
+                  Availability
+                </p>
+
+                <p
+                  className={`mt-2 text-sm font-semibold ${
+                    inStock ? "text-emerald-700" : "text-red-600"
+                  }`}
+                >
+                  {stockMessage}
+                </p>
+              </div>
+
+              <div className="mt-6">
+                <ProductActions product={product} />
+              </div>
+
+              <p className="mt-5 text-xs leading-6 text-slate-500">
+                Product availability and final order details are
+                subject to confirmation during checkout.
+              </p>
+
+              <div className="mt-6 divide-y divide-slate-100 border-t border-slate-100">
+                <div className="flex items-start gap-3 py-4">
+                  <span className="text-xl" aria-hidden="true">
+                    📦
+                  </span>
+
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">
+                      Order information
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Review the total and available fulfillment
+                      options before placing an order.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 py-4">
+                  <span className="text-xl" aria-hidden="true">
+                    🔒
+                  </span>
+
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">
+                      Checkout
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Continue through the existing Cliffesto
+                      checkout flow.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 py-4">
+                  <span className="text-xl" aria-hidden="true">
+                    ℹ️
+                  </span>
+
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">
+                      Need more information?
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Check the product description and available
+                      specifications below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Link
+              href="/products"
+              className="mt-4 flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-bold text-violet-700 transition hover:border-violet-300 hover:bg-violet-50"
+            >
+              ← Continue shopping
+            </Link>
+          </aside>
+        </div>
+
+        {/* Detailed information */}
+        <div className="mt-16 grid gap-8 lg:grid-cols-12">
+          <div className="space-y-8 lg:col-span-8">
+            {/* Description */}
+            <section
+              id="full-description"
+              className="scroll-mt-8 rounded-3xl border border-slate-200 bg-white p-6 sm:p-9"
+            >
+              <SectionTitle
+                eyebrow="Get to know your product"
+                title="Product description"
+              />
+
+              <div className="space-y-5 text-sm leading-8 text-slate-600 sm:text-base">
+                {descriptionParagraphs.map((paragraph, index) => (
+                  <p key={index}>{paragraph}</p>
+                ))}
+              </div>
+            </section>
+
+            {/* Specifications */}
+            <section
+              id="specifications"
+              className="scroll-mt-8 rounded-3xl border border-slate-200 bg-white p-6 sm:p-9"
+            >
+              <SectionTitle
+                eyebrow="The details"
+                title="Product specifications"
+              />
+
+              <p className="mb-6 text-sm leading-7 text-slate-500">
+                Verified details currently available in our product catalog.
+              </p>
+
+              <dl className="overflow-hidden rounded-2xl border border-slate-200 px-5 sm:px-6">
+                <DetailRow
+                  label="Product name"
+                  value={product.name}
+                />
+
+                <DetailRow
+                  label="Product identifier"
+                  value={String(product.id)}
+                />
+
+                <DetailRow
+                  label="Product category"
+                  value={product.category}
+                />
+
+                <DetailRow
+                  label="Listed price"
+                  value={formatPrice(product.price)}
+                />
+
+                <DetailRow
+                  label="Stock availability"
+                  value={stockMessage}
+                />
+              </dl>
+
+              <p className="mt-5 text-xs leading-6 text-slate-500">
+                Additional technical specifications, dimensions,
+                materials, or model details will appear when they
+                are available in the product catalog.
+              </p>
+            </section>
+
+            {/* Shopping and policies */}
+            <section
+              id="shopping-information"
+              className="scroll-mt-8 rounded-3xl border border-slate-200 bg-white p-6 sm:p-9"
+            >
+              <SectionTitle
+                eyebrow="Before you order"
+                title="Shopping information"
+              />
+
+              <div className="divide-y divide-slate-100">
+                <details className="group py-5" open>
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold text-slate-900">
+                    Product availability
+                    <span className="text-xl font-normal text-violet-700 transition-transform group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+
+                  <p className="mt-4 text-sm leading-7 text-slate-600">
+                    {inStock
+                      ? `${stockMessage}. Availability can change before an order is placed.`
+                      : stockMessage}
+                  </p>
+                </details>
+
+                <details className="group py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold text-slate-900">
+                    Delivery information
+                    <span className="text-xl font-normal text-violet-700 transition-transform group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+
+                  <p className="mt-4 text-sm leading-7 text-slate-600">
+                    Delivery availability, shipping charges, and
+                    estimated timelines have not been provided
+                    for this product.
+                  </p>
+                </details>
+
+                <details className="group py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold text-slate-900">
+                    Returns and replacements
+                    <span className="text-xl font-normal text-violet-700 transition-transform group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+
+                  <p className="mt-4 text-sm leading-7 text-slate-600">
+                    Product-specific return and replacement terms
+                    are not currently available in the product data.
+                    Confirm the applicable policy before purchasing.
+                  </p>
+                </details>
+
+                <details className="group py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold text-slate-900">
+                    Warranty details
+                    <span className="text-xl font-normal text-violet-700 transition-transform group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+
+                  <p className="mt-4 text-sm leading-7 text-slate-600">
+                    No product-specific warranty information has
+                    been supplied in the catalog.
+                  </p>
+                </details>
+
+                <details className="group py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold text-slate-900">
+                    Additional product information
+                    <span className="text-xl font-normal text-violet-700 transition-transform group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+
+                  <p className="mt-4 text-sm leading-7 text-slate-600">
+                    For more information, refer to the product
+                    description and specification table above.
+                  </p>
+                </details>
+              </div>
+            </section>
+          </div>
+
+          {/* Side information */}
+          <aside className="space-y-6 lg:col-span-4">
+            <div className="rounded-3xl border border-violet-100 bg-violet-50 p-7 sm:p-8">
+              <span className="text-xs font-bold uppercase tracking-widest text-violet-700">
+                Cliffesto product guide
+              </span>
+
+              <h2 className="mt-4 text-2xl font-bold leading-tight tracking-tight text-slate-950">
+                Everything important.
+                <br />
+                In one place.
+              </h2>
+
+              <p className="mt-4 text-sm leading-7 text-slate-600">
+                Compare the product information, check
+                availability, and review your purchase options
+                before making a decision.
+              </p>
+
+              <a
+                href="#specifications"
+                className="site-button-primary mt-6 rounded-full px-6 py-3 text-sm"
+              >
+                View specifications ↗
+              </a>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-7">
+              <h2 className="text-lg font-bold">
+                Quick product summary
+              </h2>
+
+              <div className="mt-5 space-y-4">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4 text-sm">
+                  <span className="text-slate-500">
+                    Category
+                  </span>
+                  <span className="text-right font-semibold">
+                    {product.category}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4 text-sm">
+                  <span className="text-slate-500">
+                    Price
+                  </span>
+                  <span className="font-bold">
+                    {formatPrice(product.price)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-slate-500">
+                    Status
+                  </span>
+                  <span
+                    className={`text-right font-bold ${
+                      inStock
+                        ? "text-emerald-700"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {inStock ? "Available" : "Unavailable"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        {/* Related products */}
+        {related.length > 0 && (
+          <section
+            id="related-products"
+            className="mt-20 scroll-mt-8"
+          >
+            <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">
+                  Keep exploring
+                </p>
+
+                <h2 className="text-3xl font-bold tracking-tight text-slate-950">
+                  You might also like
+                </h2>
+
+                <p className="mt-3 text-sm text-slate-500">
+                  More products from the {product.category} category.
+                </p>
+              </div>
+
+              <Link
+                href="/products"
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-violet-700 transition hover:border-violet-300"
+              >
+                Explore all products ↗
+              </Link>
+            </div>
+
+            <ProductGrid products={related} />
+          </section>
+        )}
+
+        {/* Bottom call to action */}
+        <section className="brand-panel mt-20 rounded-3xl px-7 py-10 text-white sm:px-12">
+          <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-violet-300">
+                Discover more with Cliffesto
+              </p>
+
+              <h2 className="mt-3 text-2xl font-bold sm:text-3xl">
+                Find what fits your everyday.
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-violet-100/80">
+                Explore more products and discover something new.
+              </p>
+            </div>
+
+            <Link
+              href="/products"
+              className="site-button-light shrink-0 rounded-full px-7 py-3.5 text-sm"
+            >
+              Continue shopping ↗
+            </Link>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}

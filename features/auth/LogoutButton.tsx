@@ -12,5 +12,5 @@ export function LogoutButton() {
     if (response.ok) router.push("/login");
     else setBusy(false);
   }
-  return <button type="button" disabled={busy} onClick={logout} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:border-indigo-600 disabled:opacity-50">{busy ? "Signing out..." : "Sign out"}</button>;
+  return <button type="button" disabled={busy} onClick={logout} className="min-h-11 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold hover:border-indigo-600 disabled:opacity-50 sm:w-auto">{busy ? "Signing out..." : "Sign out"}</button>;
 }

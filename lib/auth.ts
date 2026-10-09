@@ -8,7 +8,13 @@ import { SESSION_COOKIE } from "@/lib/session-constants";
 const SESSION_DAYS = 30;
 
 type UserRow = { id: string; email: string };
-type SessionRow = { user_id: string; email: string };
+type SessionRow = {
+  user_id: string;
+  name: string;
+  email: string;
+};
+
+
 
 function tokenHash(token: string) {
   return createHash("sha256").update(`${getSessionSecret()}:${token}`).digest("hex");
@@ -63,15 +69,40 @@ export async function clearSessionCookie() {
   cookieStore.set(SESSION_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
 }
 
+
+
 export async function getCurrentUser() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
+
   if (!token) return null;
+
   const result = await query<SessionRow>(
-    "SELECT s.user_id, u.email FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now() AND u.is_active = true",
+    `SELECT
+       s.user_id,
+       u.name,
+       u.email
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = $1
+       AND s.revoked_at IS NULL
+       AND s.expires_at > now()
+       AND u.is_active = true`,
     [tokenHash(token)],
   );
-  return result.rows[0] ? { id: result.rows[0].user_id, email: result.rows[0].email } : null;
+
+  const row = result.rows[0];
+
+  if (!row) return null;
+
+  return {
+    id: row.user_id,
+    name: row.name,
+    email: row.email,
+  };
 }
+
+
+
 
 export async function revokeCurrentSession() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
